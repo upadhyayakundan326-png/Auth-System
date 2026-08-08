@@ -53,13 +53,13 @@ const signup = async (req, res) => {
 
 
         // ================= OTP SAVE =================
+const expiry = new Date(Date.now() + 5 * 60 * 1000);
+console.log(expiry)
 
         await OTP.create({
             email: email,
             otp: otp.toString(),
-            expiresAt: new Date(
-                Date.now() + 5 * 60 * 1000
-            )
+            expiresAt: expiry
         });
 
 
@@ -95,41 +95,65 @@ const signup = async (req, res) => {
     }
 };
   //verify otp 
-  const verifyOtp = async(req,res)=>{
-    try{
-          const { email, otp } = req.body;
-    const otpdata = await OTP.findOne({
-        email,
-        otp
-    })
-    if(!otpdata){
-        return res.status(400).json({
-                message: "Invalid OTP"
-    })
-    }
-      if (otpdata.expiresAt < new Date()) {
+  const verifyOtp = async (req, res) => {
 
+    try {
+
+        const { userName, email, passWord, otp } = req.body;
+
+        console.log("VERIFY BODY:", req.body);
+
+        const otpdata = await OTP.findOne({
+            email,
+            otp
+        });
+
+        if (!otpdata) {
+            return res.status(400).json({
+                message: "Invalid OTP"
+            });
+        }
+
+        if (otpdata.expiresAt < new Date()) {
             return res.status(400).json({
                 message: "OTP expired"
             });
-
         }
-         
-        return res.json({
-            message:"otp verified succesfully"
-        })
+
+        // OTP correct ✅
+        console.log("OTP VERIFIED");
+
+        // password hash
+        const hashpassWord = await bcrypt.hash(passWord, 10);
+
+        // user create in auth database
+        const user = await auth.create({
+            email,
+            userName,
+            passWord: hashpassWord
+        });console.log("USER CREATED:", user);
+
+        console.log("USER CREATED:", user);
+
+        // OTP delete
+        await OTP.deleteOne({
+            _id: otpdata._id
+        });
+
+        return res.status(200).json({
+            message: "OTP verified and signup successful"
+        });
+
+    } catch (error) {
+
+        console.log("VERIFY ERROR:", error);
+
+        return res.status(500).json({
+            message: error.message
+        });
     }
-        catch(error){
-    res.json({
-        message: error.message
-    });
+};
 
-    console.log(error);
-}
-   
-        
-
-  }
 
 
 
@@ -139,12 +163,14 @@ const signup = async (req, res) => {
    // console.log("route hit ")
    const login = async(req,res) => {
     const {email,passWord}=req.body
+     console.log("LOGIN EMAIL:", email);
     if(!email||!passWord){
        return res.status(400).send("email and password is required")
     }
     const login = await auth.findOne({
         email
     })
+        console.log("FOUND USER:", login);
     if(!login){
         return res.status(404).send("invalid email")
     }
