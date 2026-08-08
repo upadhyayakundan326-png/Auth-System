@@ -2,50 +2,139 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const auth = require("../models/schema");
 const sendmail = require("../utilits/sendmail")
+const OTP = require("../models/otp")
 
 
-const signup = async (req,res) => {
-    console.log("signup hit ")
+const signup = async (req, res) => {
 
-        try{
-      
+    console.log("signup hit");
 
-    const {userName,email,passWord}=req.body
-     if (!userName || !email || !passWord) {
+    try {
+
+        const { userName, email, passWord } = req.body;
+
+        const usernameRegex = /^[a-zA-Z]+$/;
+
+
+        // ================= VALIDATION =================
+
+        if (!userName || !email || !passWord) {
+
             return res.status(400).json({
                 message: "All fields are required"
             });
+
         }
 
-    const holomolo = await bcrypt.hash(passWord,10)
-    const signUp= await auth.create({
-        userName,
+        else if (!usernameRegex.test(userName)) {
+
+            return res.status(400).json({
+                message: "Username should contain only characters"
+            });
+
+        }
+
+        else if (userName.length < 3 || userName.length > 20) {
+
+            return res.status(400).json({
+                message: "Username length should be between 3 and 20 characters"
+            });
+
+        }
+
+
+        // ================= OTP GENERATE =================
+
+        const otp = Math.floor(
+            100000 + Math.random() * 900000
+        );
+
+        console.log("6 digit OTP is:", otp);
+
+
+        // ================= OTP SAVE =================
+
+        await OTP.create({
+            email: email,
+            otp: otp.toString(),
+            expiresAt: new Date(
+                Date.now() + 5 * 60 * 1000
+            )
+        });
+
+
+        // ================= SEND OTP EMAIL =================
+
+        await sendmail(
+            email,
+            "Your OTP",
+            `
+                <h2>Hey ${userName}</h2>
+                <p>Your OTP is:</p>
+                <h1>${otp}</h1>
+                <p>This OTP is valid for 5 minutes.</p>
+            `
+        );
+
+
+        // ================= RESPONSE =================
+
+        return res.status(200).json({
+            message: "OTP sent successfully"
+        });
+
+
+    } catch (error) {
+
+        console.log(error);
+
+        return res.status(500).json({
+            message: error.message
+        });
+
+    }
+};
+  //verify otp 
+  const verifyOtp = async(req,res)=>{
+    try{
+          const { email, otp } = req.body;
+    const otpdata = await OTP.findOne({
         email,
-        passWord:holomolo
+        otp
     })
-       await sendmail(
-        "upadhyayakundan326@gmail.com",
-    "Testing",
-       `<h1>hello </h1>
-       <hr/>
-       <h2>${signUp.userName} thankyou for joining<h2>
-       `
-      
-       )
-    console.log("signUp succesfully")
-   return res.status(200).send("Signup succesfully")
+    if(!otpdata){
+        return res.status(400).json({
+                message: "Invalid OTP"
+    })
+    }
+      if (otpdata.expiresAt < new Date()) {
 
-   
-}
-catch(error){
-    console.log(error
-    )
+            return res.status(400).json({
+                message: "OTP expired"
+            });
+
+        }
+         
+        return res.json({
+            message:"otp verified succesfully"
+        })
+    }
+        catch(error){
     res.json({
-        message:error.message
-    })
-}
+        message: error.message
+    });
 
+    console.log(error);
 }
+   
+        
+
+  }
+
+
+
+
+
 //app.post("/login",async(req,res)=>{
    // console.log("route hit ")
    const login = async(req,res) => {
@@ -118,7 +207,8 @@ res.cookie("jwtToken",token,{
         login,
         getUser,
         deletedUser,
-        profile
+        profile,
+        verifyOtp
     
     }
 
