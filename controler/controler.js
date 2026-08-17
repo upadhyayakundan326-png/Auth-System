@@ -53,7 +53,7 @@ const signup = async (req, res) => {
 
 
         // ================= OTP SAVE =================
-const expiry = new Date(Date.now() + 5 * 60 * 1000);
+const expiry = new Date(Date.now() + 3 * 60 * 1000);
 console.log(expiry)
 
         await OTP.create({
@@ -72,7 +72,7 @@ console.log(expiry)
                 <h2>Hey ${userName}</h2>
                 <p>Your OTP is:</p>
                 <h1>${otp}</h1>
-                <p>This OTP is valid for 5 minutes.</p>
+                <p>This OTP is valid for 3 minutes.</p>
             `
         );
 
